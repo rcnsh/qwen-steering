@@ -103,9 +103,7 @@ def device() -> str:
 
 def load():
     tok = AutoTokenizer.from_pretrained(MODEL_ID)
-    model = AutoModelForImageTextToText.from_pretrained(
-        MODEL_ID, dtype=torch.bfloat16, device_map=device()
-    )
+    model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, dtype=torch.bfloat16, device_map=device())
     model.eval()
     return tok, model, model.model.language_model.layers
 
@@ -164,9 +162,7 @@ def steer(layer, vec: torch.Tensor):
 @torch.no_grad()
 def generate(tok, model, prompt: str, max_new_tokens: int) -> str:
     ids = tok(chat(tok, prompt), return_tensors="pt").to(model.device)
-    out = model.generate(
-        **ids, max_new_tokens=max_new_tokens, do_sample=False, repetition_penalty=1.1
-    )
+    out = model.generate(**ids, max_new_tokens=max_new_tokens, do_sample=False, repetition_penalty=1.1)
     return tok.decode(out[0, ids["input_ids"].shape[1] :], skip_special_tokens=True).strip()
 
 

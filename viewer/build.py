@@ -1,17 +1,18 @@
 """Pack the public atlas (fetch_atlas.py) into viewer/data/ for the neuron viewer.
 
     uv run viewer/build.py
-
-  meta.json             prompts, doses, baselines, per-layer medians
-  labels.json.zst       atlas labels, keyed "layer:neuron"
-  index.bin.zst         ten uint8 planes of 32 x 9216, indexed layer * 9216 + neuron:
-                          0-1  topic score at -0.8, +0.8 (rank.py's score, log scaled; 0 = broken)
-                          2-5  change at (-0.8, p0), (-0.8, p1), (+0.8, p0), (+0.8, p1)
-                          6-9  diversity, same order
-  L{layer}.txt.zst      the layer's replies, NUL-separated, ordered (dose, prompt, neuron)
-  kitchen.json          Neuronary recipes (fetch_neuronary.py): single neurons as ingredients, blends as specials
-
     uv run viewer/build.py --kitchen    # only rebuild kitchen.json
+
+Files written:
+
+meta.json           prompts, doses, baselines, per-layer medians
+labels.json.zst     atlas labels, keyed "layer:neuron"
+index.bin.zst       ten uint8 planes of 32 x 9216, indexed layer * 9216 + neuron:
+                      0-1  topic score at -0.8, +0.8 (rank.py's score, log scaled; 0 = broken)
+                      2-5  change at (-0.8, p0), (-0.8, p1), (+0.8, p0), (+0.8, p1)
+                      6-9  diversity, same order
+L{layer}.txt.zst    the layer's replies, NUL-separated, ordered (dose, prompt, neuron)
+kitchen.json        Neuronary recipes (fetch_neuronary.py): single neurons as ingredients, blends as specials
 """
 
 import json
@@ -61,10 +62,22 @@ GARBLED = re.compile(r"Garbled replies (\d+)/(\d+)")
 
 # Steered by this project and matched to the atlas word for word (README).
 OURS = {
-    "id": "local-mouse", "name": "Mouse story", "description": "Pushed down, answers turn to mice and rats, whatever the question.",
-    "neurons": [{"layer": 5, "neuron": 8920, "dose": -0.8}], "tags": ["topic", "animal", "mouse"], "author": "qwen-steering",
-    "url": "", "examples": [{"prompt": "Tell me a short story.", "output": "Once upon a time, in the quiet corners of an old library, there lived a small mouse named Pip. One crisp autumn morning, Pip was scurrying"}],
-    "notes": "", "reproductions": 1, "dose_curve": None,
+    "id": "local-mouse",
+    "name": "Mouse story",
+    "description": "Pushed down, answers turn to mice and rats, whatever the question.",
+    "neurons": [{"layer": 5, "neuron": 8920, "dose": -0.8}],
+    "tags": ["topic", "animal", "mouse"],
+    "author": "qwen-steering",
+    "url": "",
+    "examples": [
+        {
+            "prompt": "Tell me a short story.",
+            "output": "Once upon a time, in the quiet corners of an old library, there lived a small mouse named Pip. One crisp autumn morning, Pip was scurrying",
+        }
+    ],
+    "notes": "",
+    "reproductions": 1,
+    "dose_curve": None,
 }
 
 
@@ -95,10 +108,17 @@ def build_kitchen():
             level, evidence = "reproduced", "reproduced by this project, word for word against the atlas"
         ex = (r.get("examples") or [{}])[0]
         item = {
-            "id": r["id"], "name": r["name"], "desc": r.get("description") or "", "tags": r.get("tags") or [],
-            "author": r.get("author") or "", "url": r.get("url") or "", "tier": level, "evidence": evidence,
+            "id": r["id"],
+            "name": r["name"],
+            "desc": r.get("description") or "",
+            "tags": r.get("tags") or [],
+            "author": r.get("author") or "",
+            "url": r.get("url") or "",
+            "tier": level,
+            "evidence": evidence,
             "example": {k: (ex.get(k) or "")[:420] for k in ("prompt", "output", "base_output")} if ex else None,
-            "curve": r.get("dose_curve"), "sampling": r.get("sampling"),
+            "curve": r.get("dose_curve"),
+            "sampling": r.get("sampling"),
         }
         neurons = [{"layer": n["layer"], "neuron": n["neuron"], "dose": n["dose"]} for n in r["neurons"] if "expert" not in n]
         if len(neurons) == 1:
@@ -108,7 +128,9 @@ def build_kitchen():
     rank = {"validated": 0, "reproduced": 1, "published": 2, "exploratory": 3}
     ingredients.sort(key=lambda i: (rank[i["tier"]], i["name"].lower()))
     specials.sort(key=lambda i: (rank[i["tier"]], i["name"].lower()))
-    (OUT / "kitchen.json").write_text(json.dumps({"ingredients": ingredients, "specials": specials}, ensure_ascii=False, separators=(",", ":")))
+    (OUT / "kitchen.json").write_text(
+        json.dumps({"ingredients": ingredients, "specials": specials}, ensure_ascii=False, separators=(",", ":"))
+    )
     print(f"kitchen: {len(ingredients)} ingredients, {len(specials)} specials")
 
 
@@ -118,7 +140,9 @@ def main():
     if "--kitchen" in sys.argv:
         return
     meta = json.loads((ATLAS_DIR / "meta.json").read_text())
-    sweep = pq.read_table(ATLAS_DIR / "sweep.parquet", columns=["layer", "neuron", "dose", "prompt", "text", "change", "diversity"])
+    sweep = pq.read_table(
+        ATLAS_DIR / "sweep.parquet", columns=["layer", "neuron", "dose", "prompt", "text", "change", "diversity"]
+    )
 
     base = sweep.filter(pc.equal(sweep["layer"], -1)).sort_by("prompt")["text"].to_pylist()
     planes = np.zeros((10, N_LAYERS * N_NEURONS), dtype=np.float64)
@@ -154,16 +178,20 @@ def main():
     }
     zstd(json.dumps(keyed, ensure_ascii=False, separators=(",", ":")).encode(), OUT / "labels.json.zst")
 
-    (OUT / "meta.json").write_text(json.dumps({
-        "model": meta["model"],
-        "layers": N_LAYERS,
-        "neurons": N_NEURONS,
-        "doses": DOSES,
-        "prompts": meta["steer"]["prompts"],
-        "tokens": meta["steer"]["max_new"],
-        "baselines": base,
-        "resid_median": meta["resid_median"],
-    }))
+    (OUT / "meta.json").write_text(
+        json.dumps(
+            {
+                "model": meta["model"],
+                "layers": N_LAYERS,
+                "neurons": N_NEURONS,
+                "doses": DOSES,
+                "prompts": meta["steer"]["prompts"],
+                "tokens": meta["steer"]["max_new"],
+                "baselines": base,
+                "resid_median": meta["resid_median"],
+            }
+        )
+    )
     total = sum(p.stat().st_size for p in OUT.iterdir())
     print(f"total {total / 1e6:.1f} MB")
 
