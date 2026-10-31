@@ -2,7 +2,7 @@
 
 Each batch row pushes a different neuron (same recipe as neuron.py) and the
 model greedily writes a short reply to each prompt. Rows are written to
-scans/L{layer}_dose{dose}.jsonl for rank.py.
+results/scans/L{layer}_dose{dose}.jsonl for rank.py.
 
     uv run scan.py --layer 5 --dose -1
 """
@@ -15,7 +15,7 @@ from pathlib import Path
 import torch
 
 from neuron import median_resid_norm
-from steer import chat, load
+from qwen import chat, load
 
 PROMPTS = ["Explain how a refrigerator works.", "Tell me about your favourite hobby."]
 
@@ -89,8 +89,8 @@ def main():
 
 
 def scan_path(layer: int, dose: float) -> Path:
-    path = Path(__file__).parent / "scans" / f"L{layer}_dose{dose:+g}.jsonl"
-    path.parent.mkdir(exist_ok=True)
+    path = Path(__file__).parent / "results" / "scans" / f"L{layer}_dose{dose:+g}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 

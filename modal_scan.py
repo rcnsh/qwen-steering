@@ -1,6 +1,6 @@
 """Run scan.py on Modal GPUs, splitting a layer's neurons across containers.
 
-Results land in the same scans/L{layer}_dose{dose}.jsonl as a local scan, and
+Results land in the same results/scans/L{layer}_dose{dose}.jsonl as a local scan, and
 neurons already in that file are skipped.
 
     uv run --extra modal modal run modal_scan.py --layer 20 --dose -1
@@ -19,7 +19,7 @@ image = (
     modal.Image.debian_slim(python_version="3.12")
     .uv_pip_install("torch==2.15.0", "transformers==5.21.1", "accelerate", "safetensors", "flash-linear-attention")
     .env({"HF_HOME": "/hf"})
-    .add_local_python_source("steer", "neuron", "scan")
+    .add_local_python_source("qwen", "neuron", "scan")
 )
 
 
@@ -29,8 +29,8 @@ def scan_slice(neurons: list[int], layer: int, dose: float, batch: int, tokens: 
 
     import torch
 
+    from qwen import load
     from scan import scan_neurons
-    from steer import load
 
     tok, model, layers = load()
     hf_cache.commit()

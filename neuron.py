@@ -25,7 +25,7 @@ from pathlib import Path
 
 import torch
 
-from steer import chat, generate, load
+from qwen import chat, generate, load
 
 ATLAS_META = Path(__file__).parent / "data" / "atlas" / "meta.json"
 

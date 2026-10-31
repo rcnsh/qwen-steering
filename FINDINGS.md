@@ -42,7 +42,7 @@ uv run neuron.py --layer 5 --neuron 8920 --dose -1 -0.5 1 --prompt "What is the 
 
 ## Whole-layer scans (`scan.py`)
 
-Layers 5 and 12 were scanned at dose -1 on two prompts ("Explain how a refrigerator works." and "Tell me about your favourite hobby."); the raw replies are in [`scans/`](scans/). Layer 5 ran locally with 24-token replies, layer 12 on Modal with 48, so their counts don't compare directly. `rank.py` scores each neuron for rare words that appear in its replies to both prompts.
+Layers 5 and 12 were scanned at dose -1 on two prompts ("Explain how a refrigerator works." and "Tell me about your favourite hobby."); the raw replies are in [`results/scans/`](results/scans/). Layer 5 ran locally with 24-token replies, layer 12 on Modal with 48, so their counts don't compare directly. `rank.py` scores each neuron for rare words that appear in its replies to both prompts.
 
 | | Layer 5 | Layer 12 |
 |---|---|---|

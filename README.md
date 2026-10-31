@@ -57,15 +57,15 @@ With the atlas present, `neuron.py` uses its fixed medians, so published [Neuron
 
 ## Scanning a whole layer
 
-`scan.py` pushes every neuron in a layer (one per batch row) and saves a short greedy reply to two prompts in `scans/L{layer}_dose{dose}.jsonl`. `rank.py` lists neurons that pull both replies onto the same unusual topic. Reruns skip neurons already in the file.
+`scan.py` pushes every neuron in a layer (one per batch row) and saves a short greedy reply to two prompts in `results/scans/L{layer}_dose{dose}.jsonl`. `rank.py` lists neurons that pull both replies onto the same unusual topic. Reruns skip neurons already in the file.
 
 ```sh
 uv run scan.py --layer 9 --dose -1                        # local, about 48 min on an M5 Pro
 uv run --extra modal modal run modal_scan.py --layer 20   # Modal, 8 GPUs, about 3 min and $0.40
-uv run rank.py scans/L12_dose-1.jsonl --top 60
+uv run rank.py results/scans/L12_dose-1.jsonl --top 60
 ```
 
-`modal_scan.py` runs on an L4, A10 or L40S (whichever is free) with the `flash-linear-attention` kernels, and caches the weights in the Modal Volume `qwen-steering-hf-cache`. It needs a Modal account: run `uv run --extra modal modal setup` once. Keep local batches at 64: batch 128 swaps on 24 GB. Scans of layers 5 and 12 at dose -1 are in [`scans/`](scans/).
+`modal_scan.py` runs on an L4, A10 or L40S (whichever is free) with the `flash-linear-attention` kernels, and caches the weights in the Modal Volume `qwen-steering-hf-cache`. It needs a Modal account: run `uv run --extra modal modal setup` once. Keep local batches at 64: batch 128 swaps on 24 GB. Scans of layers 5 and 12 at dose -1 are in [`results/scans/`](results/scans/).
 
 ## Viewer
 
@@ -86,13 +86,14 @@ python3 -m http.server -d viewer   # or any static host
 
 | Path | What |
 |---|---|
+| `qwen.py` | loads the model and generates, for the scripts below |
 | `steer.py` | concept steering vectors |
 | `neuron.py` | single-neuron and multi-neuron steering |
 | `scan.py`, `modal_scan.py` | push every neuron in a layer, locally or on Modal |
 | `rank.py` | rank a scan or the atlas for topic-injecting neurons |
 | `fetch_atlas.py`, `fetch_neuronary.py` | download the public atlas and Neuronary recipes into `data/` |
 | `viewer/` | static neuron viewer, its data packer and the explainer page |
-| `scans/`, `results/` | saved scan and sweep outputs |
+| `results/` | saved concept sweeps (`steer/`), neuron runs (`neurons/`) and layer scans (`scans/`) |
 
 ## Credits
 
