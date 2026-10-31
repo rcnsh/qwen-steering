@@ -1,0 +1,29 @@
+[project]
+name = "qwen-steering"
+version = "0.1.0"
+description = "Activation and single-neuron steering experiments on Qwen3.5-4B"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Jacob Wiltshire", email = "jacobjameswiltshire@protonmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "accelerate>=1.15.0",
+    "huggingface-hub",
+    "numpy",
+    "pyarrow>=26.0.0",
+    "safetensors>=0.8.0",
+    "torch>=2.15.0",
+    "transformers>=5.21.1",
+]
+
+[project.optional-dependencies]
+modal = ["modal>=1.6.3"]
+
+[dependency-groups]
+dev = ["ruff"]
+
+[tool.ruff]
+line-length = 130
