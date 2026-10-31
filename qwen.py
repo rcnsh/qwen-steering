@@ -1,4 +1,4 @@
-"""Load Qwen3.5-4B and generate from it, for steer.py, neuron.py and scan.py."""
+"""Load Qwen3.5-4B and generate from it, for steer.py, neuron.py, scan.py and modal_scan.py."""
 
 import torch
 from transformers import AutoModelForImageTextToText, AutoTokenizer
