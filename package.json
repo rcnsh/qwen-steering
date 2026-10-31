@@ -1,0 +1,13 @@
+{
+  "name": "qwen-steering",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "uv run fetch_atlas.py && uv run fetch_neuronary.py && uv run viewer/build.py",
+    "deploy": "test -f viewer/data/meta.json && cf deploy"
+  },
+  "devDependencies": {
+    "cf": "^1.0.0-beta.26",
+    "wrangler": "^4.156.0"
+  }
+}

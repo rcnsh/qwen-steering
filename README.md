@@ -7,11 +7,11 @@ Push layer 5's neuron 8920 down and rodents get into its answers:
 > **What is the capital of France?**
 > Paris. To elaborate: Paris is a large rodent species, belonging to the family Muridae.
 
-- **[Neuron viewer](https://p.rcn.sh/tn5lxom7p4mh/)**: all 294,912 MLP neurons, each pushed alone, with their replies.
-- **[How neuron steering works](https://p.rcn.sh/3xw42vgsydhu/)**: a one-page explainer.
+- **[Neuron viewer](https://qwen-steering.rcn.sh/)**: all 294,912 MLP neurons, each pushed alone, with their replies.
+- **[How neuron steering works](https://qwen-steering.rcn.sh/how-it-works/)**: a one-page explainer.
 - **[Findings](FINDINGS.md)**: what worked, with examples.
 
-[![The neuron viewer showing layer 5 neuron 8920](docs/viewer.png)](https://p.rcn.sh/tn5lxom7p4mh/#5:8920-)
+[![The neuron viewer showing layer 5 neuron 8920](docs/viewer.png)](https://qwen-steering.rcn.sh/#5:8920-)
 
 ## Setup
 
@@ -80,9 +80,7 @@ uv run viewer/build.py --kitchen   # only rebuild kitchen.json
 python3 -m http.server -d viewer   # or any static host
 ```
 
-`.github/workflows/pages.yml` builds the viewer and deploys it to GitHub Pages on every push that touches it and weekly, to pick up new Neuronary recipes. Set the repo's Pages source to GitHub Actions before the first run.
-
-`infographic/` holds the explainer page: `standalone.html` opens anywhere, `index.html` picks up a host's theme variables.
+`viewer/how-it-works/` is the explainer page. The live site is a static-assets Cloudflare Worker: `npm run build` fetches and packs the data, and `npm run deploy` publishes `viewer/` with [`cf`](https://developers.cloudflare.com/cf/) (`cloudflare.config.ts` holds the Worker name and domain; change them to deploy your own copy). `viewer/.assetsignore` keeps `build.py` off the site.
 
 ## Layout
 
@@ -93,7 +91,7 @@ python3 -m http.server -d viewer   # or any static host
 | `scan.py`, `modal_scan.py` | push every neuron in a layer, locally or on Modal |
 | `rank.py` | rank a scan or the atlas for topic-injecting neurons |
 | `fetch_atlas.py`, `fetch_neuronary.py` | download the public atlas and Neuronary recipes into `data/` |
-| `viewer/` | static neuron viewer and its data packer |
+| `viewer/` | static neuron viewer, its data packer and the explainer page |
 | `scans/`, `results/` | saved scan and sweep outputs |
 
 ## Credits

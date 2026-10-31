@@ -10,3 +10,8 @@ wheels/
 .venv
 vectors/
 data/
+
+# Cloudflare deploy
+node_modules/
+.wrangler/
+.cloudflare/
