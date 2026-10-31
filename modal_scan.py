@@ -1,6 +1,6 @@
 """Run scan.py on Modal GPUs, splitting a layer's neurons across containers.
 
-Results land in the same scans/L{layer}_dose{dose}.jsonl as a local scan, and
+Results land in the same results/scans/L{layer}_dose{dose}.jsonl as a local scan, and
 neurons already in that file are skipped.
 
     uv run --extra modal modal run modal_scan.py --layer 20 --dose -1

@@ -5,7 +5,7 @@ words, and scores double for rare words that show up in the replies to both
 prompts (one topic leaking into unrelated answers). Replies that are mostly
 non-ASCII or repeated tokens count as broken and are skipped.
 
-    uv run rank.py scans/L5_dose-1.jsonl --top 60
+    uv run rank.py results/scans/L5_dose-1.jsonl --top 60
     uv run rank.py atlas --layer 14 --dose 0.8    # the public atlas sweep (fetch_atlas.py)
 
 Neurons with an atlas label show it after their score.
@@ -60,7 +60,7 @@ def atlas_labels(layer: int) -> dict[int, str]:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("scan", help='a scans/*.jsonl file, or "atlas"')
+    ap.add_argument("scan", help='a results/scans/*.jsonl file, or "atlas"')
     ap.add_argument("--layer", type=int, help="layer, for atlas (read from the file name otherwise)")
     ap.add_argument("--dose", type=float, default=-0.8, help="dose, for atlas (-0.8 or 0.8)")
     ap.add_argument("--top", type=int, default=60)
