@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Neuron Atlas · qwen-steering</title>
 <meta name="description" content="All 294,912 MLP neurons in Qwen3.5-4B, each pushed alone and asked two questions, plus a kitchen for blending neurons with published effects.">
+<link rel="canonical" href="https://qwen-steering.rcn.sh/">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="qwen-steering">
+<meta property="og:title" content="Neuron Atlas · qwen-steering">
+<meta property="og:description" content="All 294,912 MLP neurons in Qwen3.5-4B, each pushed alone and asked two questions, plus a kitchen for blending neurons with published effects.">
+<meta property="og:url" content="https://qwen-steering.rcn.sh/">
+<meta property="og:image" content="https://qwen-steering.rcn.sh/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Layer 5, neuron 8920 pushed down: asked the capital of France, Qwen3.5-4B says Paris is a large rodent species.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -19,7 +33,7 @@
     <a href="#kitchen" data-tab="kitchen"><span class="f">ii.</span>Kitchen<span id="pot-count" class="pot" hidden></span></a>
     <a href="how-it-works/"><span class="f">iii.</span>How it works</a>
   </nav>
-  <p class="folio">32 layers × 9,216 neurons</p>
+  <p class="folio">32 layers × 9,216 neurons · <a href="https://github.com/rcnsh/qwen-steering">source</a></p>
 </header>
 
 <main id="atlas">
@@ -181,6 +195,7 @@
   <div>
     <p>Neuron sweep, labels and median residual norms from <a href="https://huggingface.co/datasets/nikhilxvytla/neuron-atlas" target="_blank" rel="noopener">nikhilxvytla/neuron-atlas</a> (ODC-BY). Each neuron gets <code>dose × median(‖resid‖) / ‖W_down[:, n]‖</code> added at its down_proj input on every token, greedy, 32 tokens.</p>
     <p>Kitchen recipes come from <a href="https://neuronary.org" target="_blank" rel="noopener">Neuronary</a> (CC0) and are credited to their authors. <code>--mix</code> applies every dose evenly on every token. Atlas labels are written by an LLM and describe what a neuron fires on, which is often not what pushing it does.</p>
+    <p>Code, scans and findings: <a href="https://github.com/rcnsh/qwen-steering" target="_blank" rel="noopener">github.com/rcnsh/qwen-steering</a> (MIT).</p>
   </div>
 </footer>
 </div>
