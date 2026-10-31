@@ -81,7 +81,7 @@ export function initKitchen({ data, labels, onChange }) {
     const inPot = new Set(pot.map((p) => key(p.ing)));
     const blends = state.view === "blends";
     const pool = blends ? data.specials : data.ingredients;
-    const shown = pool.filter(matches);
+    const shown = pool.filter((i) => matches(i));
     $("#k-n-count").textContent = data.ingredients.length;
     $("#k-b-count").textContent = data.specials.length;
     $("#k-count").textContent = shown.length === pool.length ? `Showing all ${pool.length}` : `Showing ${shown.length} of ${pool.length}`;
