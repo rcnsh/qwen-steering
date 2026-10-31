@@ -3,273 +3,430 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How native neuron steering works</title>
+<title>How neuron steering works · qwen-steering</title>
+<meta name="description" content="How pushing one MLP neuron in Qwen3.5-4B turns a question about a fridge into one about mice.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --ink: var(--foreground, #1f1c17);
-    --soft: var(--muted-foreground, #6b6459);
-    --line: var(--border, #ddd5c6);
-    --panel: var(--card, #fffdf8);
-    --code: var(--code-background, #f1ebdf);
-    --a: var(--chart-1, #d6472b);
-    --b: var(--chart-2, #2f6fb3);
-    --c: var(--chart-3, #2e8b57);
-    --r: var(--radius, 10px);
-    --serif: "Iowan Old Style", "Charter", Georgia, serif;
-    --mono: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
-    --sans: var(--font-sans, -apple-system, "Helvetica Neue", sans-serif);
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; color: var(--ink); font-family: var(--sans); line-height: 1.5; }
-  .wrap { max-width: 728px; margin: 0 auto; }
-  .kicker { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--a); }
-  h1 { font: 700 44px/1.02 var(--serif); margin: 10px 0 14px; letter-spacing: -.01em; }
-  h1 em { color: var(--a); font-style: italic; }
-  .lede { font-size: 17px; color: var(--soft); max-width: 600px; margin: 0 0 32px; }
-  section { border-top: 1px solid var(--line); padding: 26px 0 28px; }
-  .step { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; }
-  .num { font: 700 34px/1 var(--serif); color: var(--a); }
-  h2 { font: 700 23px/1.2 var(--serif); margin: 2px 0 8px; }
-  p { margin: 0 0 12px; font-size: 15px; }
-  .muted { color: var(--soft); }
-  code, .m { font-family: var(--mono); font-size: 13px; }
-  code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
-  .box { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
-  svg { display: block; width: 100%; height: auto; }
-  svg text { font-family: var(--mono); fill: var(--ink); }
-  .formula { text-align: center; font: 500 19px/1.5 var(--serif); padding: 18px 12px; }
-  .formula .frac { display: inline-flex; flex-direction: column; vertical-align: middle; margin: 0 6px; }
-  .formula .frac span:first-child { border-bottom: 1.5px solid var(--ink); padding: 0 6px 2px; }
-  .formula .frac span:last-child { padding: 2px 6px 0; }
-  .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
-  .legend div { font-size: 13px; }
-  .legend b { display: block; font: 600 12px var(--mono); margin-bottom: 2px; }
-  .worked { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; font: 13px var(--mono); margin-top: 6px; }
-  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: var(--code); }
-  .chip.hot { border-color: var(--a); color: var(--a); font-weight: 700; }
-  .dose { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .dose .box { padding: 12px 14px; }
-  .dose .d { font: 700 20px var(--mono); }
-  .dose .lab { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--soft); margin-bottom: 6px; }
-  .dose q { display: block; font: italic 14px/1.4 var(--serif); quotes: "\201C" "\201D"; }
-  .dose .on { border-color: var(--a); box-shadow: inset 0 3px 0 var(--a); }
-  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .vs .lab { font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; color: var(--soft); }
-  .vs .steered { border-color: var(--a); }
-  .vs .steered .lab { color: var(--a); }
-  .vs q { font: 15px/1.45 var(--serif); quotes: "\201C" "\201D"; }
-  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-  td, th { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--soft); }
-  td.n { font-family: var(--mono); white-space: nowrap; font-size: 12.5px; }
-  td q { font-family: var(--serif); font-style: italic; quotes: "\201C" "\201D"; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .tag { display: inline-block; font: 600 11px var(--mono); padding: 2px 7px; border-radius: 4px; color: #fff; margin-bottom: 8px; }
-  .mix { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-  .mix div { border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: var(--panel); }
-  .mix b { display: block; font-size: 13px; }
-  .mix span { font: 12px var(--mono); color: var(--soft); }
-  .foot { font-size: 12.5px; color: var(--soft); border-top: 1px solid var(--line); padding-top: 14px; }
-  @media (max-width: 560px) {
-    h1 { font-size: 34px; }
-    .step { grid-template-columns: 1fr; }
-    .num { margin-bottom: 6px; }
-    .dose, .vs, .two, .legend { grid-template-columns: 1fr; }
-    .mix { grid-template-columns: 1fr 1fr; }
-  }
-  body { background: #f6f1e7; padding: 48px 20px 64px; }
+
+:root{
+  --paper:#f4efe4; --leaf:#fbf8f1; --wash:#ebe4d5;
+  --ink:#1c1915; --ink-2:#544d44; --ink-3:#6b6256;
+  --rule:#d3c9b6; --rule-2:#e3dbcb;
+  --red:#a3301e; --red-wash:#f1dfd6;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --m:180px; --g:28px; --pad:32px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration-color:var(--red);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{color:var(--red)}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+kbd{font:500 11px var(--mono);border:1px solid var(--rule);border-bottom-width:2px;border-radius:3px;padding:0 4px;background:var(--leaf);color:var(--ink-2)}
+.book{position:relative;max-width:1440px;margin:0 auto;padding:0 var(--pad) 40px}
+.book::before{content:"";position:absolute;top:0;bottom:0;left:calc(var(--pad) + var(--m) + var(--g) / 2);width:1px;background:var(--red);opacity:.45;pointer-events:none}
+.sheet{display:grid;grid-template-columns:var(--m) minmax(0,1fr);column-gap:var(--g)}
+.margin{font-size:12.5px;line-height:1.45;color:var(--ink-2)}
+.head{display:grid;grid-template-columns:var(--m) 1fr auto;column-gap:var(--g);align-items:end;padding:22px 0 10px;border-bottom:1px solid var(--ink);position:relative}
+.head::after{content:"";position:absolute;left:0;right:0;bottom:-4px;border-bottom:1px solid var(--ink)}
+.mark{font:italic 600 21px/1 var(--serif);text-decoration:none;letter-spacing:-.01em}
+.mark small{display:block;font:500 10px/1.3 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-style:normal;margin-top:6px}
+.tabs{display:flex;gap:28px;flex-wrap:wrap}
+.tabs a{font:500 15px/1 var(--sans);text-decoration:none;padding:6px 0 9px;color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-11px}
+.tabs a .f{font:italic 14px var(--serif);color:var(--ink-3);margin-right:7px}
+.tabs a[aria-current=page]{color:var(--ink);border-color:var(--red)}
+.tabs a[aria-current=page] .f{color:var(--red)}
+.tabs a:hover{color:var(--ink)}
+.folio{font:12px var(--mono);color:var(--ink-3);margin:0}
+.btn{border:1px solid var(--ink-2);background:transparent;border-radius:3px;padding:5px 11px;font:500 13px/1.2 var(--sans);transition:background .12s,color .12s}
+.btn:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default;background:transparent;color:inherit}
+.foot{border-top:1px solid var(--rule);margin-top:44px;padding-top:16px;font-size:12.5px;color:var(--ink-2)}
+.foot p{margin:0 0 6px;max-width:860px}
+.foot .mh{font:italic 15px var(--serif);color:var(--ink)}
+.say{white-space:normal}
+.recipe .co{white-space:nowrap}
+.recipe li span.nm{min-width:0}
+
+
+/* how it works */
+.intro{padding:40px 0 30px}
+.kick{font:600 10.5px var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--red);margin:0 0 10px}
+h1{font:600 54px/1.02 var(--serif);letter-spacing:-.02em;margin:0 0 16px;max-width:820px}
+h1 em{color:var(--red);font-style:italic}
+.lede{font:400 20px/1.45 var(--serif);color:var(--ink-2);max-width:680px;margin:0}
+.tally{margin:8px 0 0;font:12px/1.7 var(--mono);color:var(--ink-3)}
+.toc{list-style:none;margin:0;padding:0;counter-reset:t}
+.toc li{counter-increment:t;font-size:12.5px;padding:2px 0}
+.toc a{text-decoration:none;color:var(--ink-2)}
+.toc a::before{content:counter(t) ".";font:italic 13px var(--serif);color:var(--red);display:inline-block;width:18px}
+.toc a:hover{color:var(--ink)}
+.step{border-top:1px solid var(--rule);padding:30px 0 34px}
+.num{font:600 54px/.9 var(--serif);color:var(--red);display:block}
+.body{display:grid;grid-template-columns:minmax(0,680px) minmax(0,250px);column-gap:40px;align-items:start}
+.txt,.wide{grid-column:1}
+.side{grid-column:2;grid-row:1 / span 2;font:italic 15px/1.45 var(--serif);color:var(--ink-2);border-top:1px solid var(--ink);padding-top:6px;margin-top:6px}
+.side b{font-style:normal;font-family:var(--sans);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--red);display:block;margin-bottom:2px;font-weight:600}
+h2{font:600 28px/1.15 var(--serif);margin:0 0 10px;letter-spacing:-.01em}
+.txt>p,.wide>p{margin:0 0 12px;font:400 18px/1.55 var(--serif)}
+code,.m{font-family:var(--mono);font-size:.82em}
+code{background:var(--wash);padding:1px 5px;border-radius:2px}
+.plate{background:var(--leaf);border:1px solid var(--rule);padding:18px 18px 14px;margin:10px 0 0}
+svg{display:block;width:100%;height:auto}
+svg text{font-family:var(--mono);fill:var(--ink)}
+.defs{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--rule-2)}
+.defs dt{font:500 12px var(--mono);margin-bottom:2px}
+.defs dd{margin:0;font-size:13px;color:var(--ink-2)}
+.formula{text-align:center;font:400 24px/1.5 var(--serif);padding:22px 12px}
+.formula i{font-style:italic}
+.formula .a{color:var(--red);font-style:italic;font-weight:600}
+.frac{display:inline-flex;flex-direction:column;vertical-align:middle;margin:0 8px;font-size:20px}
+.frac>span:first-child{border-bottom:1.5px solid var(--ink);padding:0 8px 3px}
+.frac>span:last-child{padding:3px 8px 0}
+.frac .m{font-size:13px;color:var(--ink-3)}
+.worked{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;justify-content:center;font:14px var(--mono);padding:12px 0 2px;border-top:1px dashed var(--rule)}
+.worked b{font-weight:500}
+.worked .res{color:var(--red);font-weight:600;border-bottom:2px solid var(--red)}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--rule);background:var(--leaf);margin:6px 0 14px}
+.vs>div{padding:14px 18px 16px}
+.vs>div+div{border-left:1px solid var(--rule)}
+.vs .st{box-shadow:inset 0 3px 0 var(--red)}
+.lab{font:600 10.5px var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:0 0 6px}
+.st .lab{color:var(--red)}
+.vs blockquote,.dose blockquote{margin:0;font:16.5px/1.5 var(--serif);position:relative;padding-left:14px}
+.vs blockquote::before,.dose blockquote::before{content:"\201C";position:absolute;left:-2px;top:-4px;font:32px/1 var(--serif);color:var(--rule)}
+.dose{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding-top:28px}
+.dose::before{content:"";position:absolute;top:9px;left:16.66%;right:16.66%;border-top:1px solid var(--ink)}
+.dose>div{position:relative;border-top:1px solid var(--rule);padding-top:12px}
+.dose>div::before{content:"";position:absolute;top:-24px;left:50%;width:11px;height:11px;margin-left:-6px;border-radius:50%;background:var(--paper);border:1.5px solid var(--ink)}
+.dose .on::before{background:var(--red);border-color:var(--red)}
+.dose .d{font:600 13px var(--mono);text-align:center;margin:0}
+.dose .w{font:italic 600 24px/1.2 var(--serif);text-align:center;margin:0 0 8px}
+.dose .on .w,.dose .on .d{color:var(--red)}
+.dose blockquote{font-size:15px;color:var(--ink-2)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{text-align:left;padding:7px 8px 7px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:600 10.5px var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+td.n{font:12.5px var(--mono);white-space:nowrap;width:56px}
+td q{font:italic 15.5px/1.4 var(--serif);quotes:"\201C" "\201D"}
+.th{font:600 17px var(--serif);border-bottom:1px solid var(--ink);padding-bottom:6px;margin:0 0 2px}
+.th span{font:600 10.5px var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--red);margin-left:8px}
+.recipe{list-style:none;margin:4px 0 14px;padding:0;max-width:520px}
+.recipe li{display:flex;align-items:baseline;gap:8px;padding:5px 0;font:17px var(--serif)}
+.recipe .lead{flex:1;border-bottom:1px dotted var(--ink-3);transform:translateY(-4px)}
+.recipe .co{font:13px var(--mono);color:var(--ink-2)}
+.recipe .plus{font:italic 15px var(--serif);color:var(--ink-3)}
+.cmp td:first-child{font:italic 600 16px var(--serif);width:130px}
+.cmp td{font:15px/1.45 var(--serif)}
+.cmp th:nth-child(3),.cmp td:nth-child(3){background:var(--red-wash)}
+.cmp th,.cmp td{padding-left:10px}
+.next{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.next a{font:500 14px var(--sans);text-decoration:none;border:1px solid var(--ink-2);padding:7px 13px;border-radius:3px}
+.next a:hover{background:var(--ink);color:var(--paper)}
+.vs .src,.dose .src{margin:8px 0 0;font-size:12px;color:var(--ink-3)}
+.note{font-size:13px;color:var(--ink-2);margin:10px 0 0}
+
+@media (max-width:1240px){
+  .body{grid-template-columns:minmax(0,1fr)}
+  .side{grid-column:1;grid-row:auto;margin:4px 0 14px;max-width:560px}
+}
+@media (max-width:860px){
+  :root{--pad:16px}
+  .book{padding-left:28px}
+  .book::before{left:14px}
+  .sheet,.head{grid-template-columns:1fr}
+  .head{row-gap:14px}
+  .folio{display:none}
+  h1{font-size:36px}
+  .lede{font-size:17px}
+  .intro .margin{display:none}
+  .num{font-size:40px;margin-bottom:6px}
+  .txt>p,.wide>p{font-size:17px}
+  .vs,.two,.defs{grid-template-columns:1fr}
+  .vs>div+div{border-left:0;border-top:1px solid var(--rule)}
+  .dose{grid-template-columns:1fr;padding-top:0;gap:18px}
+  .dose::before,.dose>div::before{display:none}
+  .dose .w,.dose .d{text-align:left}
+  .formula{font-size:18px;padding:14px 4px}
+  .frac{font-size:16px}
+  .plate{padding:12px 10px}
+  .cmp td:first-child{width:auto}
+  .cmp{font-size:13px}
+}
+</style>
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="book">
+<header class="head">
+  <a class="mark" href="../">qwen-steering<small>Qwen3.5-4B neuron notebook</small></a>
+  <nav class="tabs" aria-label="Pages">
+    <a href="../"><span class="f">i.</span>Atlas</a>
+    <a href="../#kitchen"><span class="f">ii.</span>Kitchen</a>
+    <a href="./" aria-current="page"><span class="f">iii.</span>How it works</a>
+  </nav>
+  <p class="folio">32 layers × 9,216 neurons</p>
+</header>
 
-<div class="kicker">Qwen3.5-4B · interpretability, by hand · <a href="../" style="color:inherit">Neuron viewer</a></div>
-<h1>Turn one neuron,<br>and the fridge becomes <em>a mouse</em>.</h1>
-<p class="lede">A language model's MLP layers are full of single units that, pushed hard enough, drag every answer toward one topic, style or persona. This is how that works, using real runs on Qwen3.5-4B.</p>
-
-<section class="step">
-  <div class="num">1</div>
+<main>
+<section class="sheet intro">
+  <nav class="margin" aria-label="Sections">
+    <ol class="toc">
+      <li><a href="#s1">Shared notepad</a></li>
+      <li><a href="#s2">One slot in the MLP</a></li>
+      <li><a href="#s3">Nudging an activation</a></li>
+      <li><a href="#s4">What it does</a></li>
+      <li><a href="#s5">Scanning a layer</a></li>
+      <li><a href="#s6">Neurons compose</a></li>
+      <li><a href="#s7">Neurons vs vectors</a></li>
+    </ol>
+  </nav>
   <div>
-    <h2>The residual stream is a shared notepad</h2>
-    <p>Each token is a list of 2,560 numbers, the <b>residual stream</b>. It flows through 32 layers. No layer replaces it: each one reads it, computes something, and <i>adds</i> its result back. Whatever ends up in the stream at the top decides the next word.</p>
-    <div class="box">
-      <svg viewBox="0 0 680 130" role="img" aria-label="Residual stream flowing through layers that each read and add">
+    <p class="kick">How it works · Qwen3.5-4B</p>
+    <h1>Turn one neuron, and the fridge becomes <em>a mouse</em>.</h1>
+    <p class="lede">A language model's MLP layers are full of single units that, pushed hard enough, drag every answer toward one topic, style or persona. This is how that works, using real runs on Qwen3.5-4B.</p>
+  </div>
+</section>
+
+<section class="sheet step" id="s1" aria-labelledby="h1s">
+  <div class="margin"><span class="num" aria-hidden="true">1</span></div>
+  <div class="body">
+    <div class="txt">
+      <h2 id="h1s">The residual stream is a shared notepad</h2>
+      <p>Each token is a list of 2,560 numbers, the <b>residual stream</b>. It flows through 32 layers. No layer replaces it: each one reads it, computes something, and <i>adds</i> its result back. Whatever ends up in the stream at the top decides the next word.</p>
+    </div>
+    <p class="side"><b>Fig. 1</b>Every layer reads the stream and adds to it at a ⊕. Layer 5, in red, holds the neuron used in the examples below.</p>
+    <div class="wide plate">
+      <svg viewBox="0 0 680 150" role="img" aria-label="The residual stream runs left to right through layers 0 to 31. Each layer reads from the stream and adds its result back.">
         <defs>
-          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--ink)"/></marker>
-          <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--a)"/></marker>
+          <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,1L9,5L0,9z" fill="#1c1915"/></marker>
+          <marker id="arR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,1L9,5L0,9z" fill="#a3301e"/></marker>
+          <marker id="arS" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,1L9,5L0,9z" fill="#6b6256"/></marker>
         </defs>
-        <line x1="20" y1="85" x2="655" y2="85" stroke="var(--ink)" stroke-width="5" marker-end="url(#ar)"/>
-        <text x="20" y="115" font-size="12">token in</text>
-        <text x="600" y="115" font-size="12">next word</text>
-        <g font-size="12">
-          <rect x="95" y="18" width="80" height="34" rx="6" fill="var(--code)" stroke="var(--line)"/><text x="112" y="40">layer 0</text>
-          <rect x="215" y="18" width="80" height="34" rx="6" fill="var(--code)" stroke="var(--line)"/><text x="232" y="40">layer 1</text>
-          <text x="318" y="40">· · ·</text>
-          <rect x="365" y="18" width="80" height="34" rx="6" fill="var(--a)" stroke="var(--a)"/><text x="382" y="40" style="fill:#fff">layer 5</text>
-          <text x="468" y="40">· · ·</text>
-          <rect x="510" y="18" width="80" height="34" rx="6" fill="var(--code)" stroke="var(--line)"/><text x="523" y="40">layer 31</text>
-        </g>
-        <g stroke-width="1.5">
-          <path d="M120 85 V54" stroke="var(--soft)" marker-end="url(#ar)"/><path d="M150 54 V82" stroke="var(--b)" marker-end="url(#ar)"/>
-          <path d="M240 85 V54" stroke="var(--soft)" marker-end="url(#ar)"/><path d="M270 54 V82" stroke="var(--b)" marker-end="url(#ar)"/>
-          <path d="M390 85 V54" stroke="var(--soft)" marker-end="url(#ar)"/><path d="M420 54 V82" stroke="var(--a)" stroke-width="2.5" marker-end="url(#arA)"/>
-          <path d="M535 85 V54" stroke="var(--soft)" marker-end="url(#ar)"/><path d="M565 54 V82" stroke="var(--b)" marker-end="url(#ar)"/>
-        </g>
-        <text x="116" y="74" font-size="10" style="fill:var(--soft)" text-anchor="end">read</text>
-        <text x="155" y="74" font-size="10" style="fill:var(--b)">add</text>
+        <line x1="14" y1="104" x2="662" y2="104" stroke="#1c1915" stroke-width="3" marker-end="url(#ar)"/>
+        <g id="layers"></g>
+        <text x="14" y="134" font-size="12" style="fill:#544d44">token in</text>
+        <text x="662" y="134" font-size="12" text-anchor="end" style="fill:#544d44">next word</text>
       </svg>
     </div>
   </div>
 </section>
 
-<section class="step">
-  <div class="num">2</div>
-  <div>
-    <h2>A native neuron is one slot in the MLP</h2>
-    <p>Inside every layer, the MLP blows the 2,560 numbers up to <b>9,216</b>, applies a nonlinearity, and squeezes them back down with a matrix called <code>down_proj</code>. Each of those 9,216 middle values is a <b>neuron</b>: 32 × 9,216 ≈ <b>295,000</b> in the model. "Native" means it's a unit the model already has, not a direction we invented.</p>
-    <div class="box">
-      <svg viewBox="0 0 680 210" role="img" aria-label="MLP expands to 9216 neurons, one highlighted, whose down_proj column is written back to the stream">
-        <rect x="18" y="62" width="70" height="86" rx="6" fill="var(--code)" stroke="var(--line)"/>
-        <text x="28" y="100" font-size="12">stream</text><text x="30" y="116" font-size="11" style="fill:var(--soft)">2,560</text>
-        <path d="M92 105 L170 30 L170 180 Z" fill="var(--b)" opacity=".14"/>
-        <text x="100" y="196" font-size="11" style="fill:var(--soft)">gate × up</text>
-        <g id="dots"></g>
-        <path d="M430 30 L508 105 L430 180 Z" fill="var(--a)" opacity=".14"/>
-        <text x="440" y="196" font-size="11" style="fill:var(--soft)">down_proj</text>
-        <rect x="514" y="62" width="70" height="86" rx="6" fill="var(--code)" stroke="var(--line)"/>
-        <text x="524" y="100" font-size="12">stream</text><text x="526" y="116" font-size="11" style="fill:var(--soft)">+ result</text>
-        <text x="218" y="22" font-size="12">9,216 neurons</text>
-        <path d="M392 120 C 450 150, 470 150, 512 128" fill="none" stroke="var(--a)" stroke-width="2.5" marker-end="url(#arA)"/>
-        <text x="600" y="70" font-size="11" style="fill:var(--a)">writes</text>
-        <text x="600" y="85" font-size="11" style="fill:var(--a)">W_down[:, n]</text>
-        <text x="600" y="100" font-size="11" style="fill:var(--a)">× activation</text>
+<section class="sheet step" id="s2" aria-labelledby="h2s">
+  <div class="margin"><span class="num" aria-hidden="true">2</span></div>
+  <div class="body">
+    <div class="txt">
+      <h2 id="h2s">A native neuron is one slot in the MLP</h2>
+      <p>Inside every layer, the MLP blows the 2,560 numbers up to <b>9,216</b>, applies a nonlinearity, and squeezes them back down with a matrix called <code>down_proj</code>. Each of those 9,216 middle values is a <b>neuron</b>: 32 × 9,216 = <b>294,912</b> in the model. "Native" means it's a unit the model already has, not a direction we invented.</p>
+    </div>
+    <p class="side"><b>Fig. 2</b>One of the 9,216 middle values, circled, is neuron <i>n</i>. Whatever it does reaches the stream only through its column of <code>down_proj</code>.</p>
+    <div class="wide plate">
+      <svg viewBox="0 0 680 214" role="img" aria-label="The MLP expands the stream to 9,216 neurons, then down_proj writes each neuron's column back to the stream. One neuron is highlighted.">
+        <g id="mlp"></g>
       </svg>
-      <div class="legend">
-        <div><b>activation</b>How strongly the neuron fires on this token. Usually near zero.</div>
-        <div><b>W_down[:, n]</b>Its fixed "write" direction: what it adds to the stream when it fires.</div>
-        <div><b>so</b>Neuron n always contributes activation × W_down[:, n].</div>
+      <dl class="defs">
+        <div><dt>activation</dt><dd>How strongly the neuron fires on this token. Usually near zero.</dd></div>
+        <div><dt>W_down[:, n]</dt><dd>Its fixed write direction: what it adds to the stream when it fires.</dd></div>
+        <div><dt>so</dt><dd>Neuron n always contributes activation × W_down[:, n].</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="sheet step" id="s3" aria-labelledby="h3s">
+  <div class="margin"><span class="num" aria-hidden="true">3</span></div>
+  <div class="body">
+    <div class="txt">
+      <h2 id="h3s">Steering is nudging one activation, at every token</h2>
+      <p>Hook the input to <code>down_proj</code> and add a constant <b>a</b> to neuron n, on every token of the prompt and the reply. The stream now carries an extra <b>a × W_down[:, n]</b>, which every later layer reads. The recipe sizes <b>a</b> so the dose means the same thing at any layer:</p>
+    </div>
+    <p class="side"><b>Why divide</b>Dividing by ‖W_down[:, n]‖ turns activation units into a push whose length is dose × the stream's typical size, so dose −1 shoves the stream by its whole typical length. The median is the atlas's fixed value for each layer, so atlas and Neuronary doses reproduce. Token 0 is left out of the median because its norm is an outlier.</p>
+    <div class="wide plate">
+      <div class="formula" role="math" aria-label="a equals dose times median residual norm leaving layer L, over tokens 1 onward, divided by the norm of W_down column n">
+        <span class="a">a</span> = <i>dose</i> ×
+        <span class="frac"><span>median ‖resid‖ leaving layer L <span class="m">(tokens 1:)</span></span><span>‖W_down[:, n]‖</span></span>
+      </div>
+      <div class="worked">
+        <span>L5 N8920:</span><span>median ‖resid‖ <b>6.30</b></span><span>÷ ‖W_down‖ <b>0.4358</b></span><span>× dose <b>−1</b></span><span>=</span><span class="res">a = −14.5</span>
       </div>
     </div>
   </div>
 </section>
 
-<section class="step">
-  <div class="num">3</div>
-  <div>
-    <h2>Steering = nudging one activation, at every token</h2>
-    <p>Hook the input to <code>down_proj</code> and add a constant <b>a</b> to neuron n, on every token of the prompt and the reply. The stream now carries an extra <b>a × W_down[:, n]</b>, which every later layer reads. The recipe sizes <b>a</b> so the dose means the same thing at any layer:</p>
-    <div class="box formula">
-      a = dose ×
-      <span class="frac"><span>median ‖resid‖ leaving layer L <span class="m">(tokens 1:)</span></span><span>‖W_down[:, n]‖</span></span>
+<section class="sheet step" id="s4" aria-labelledby="h4s">
+  <div class="margin"><span class="num" aria-hidden="true">4</span></div>
+  <div class="body">
+    <div class="txt">
+      <h2 id="h4s">What it does</h2>
+      <p>Same prompt, same greedy decoding, one neuron changed.</p>
     </div>
-    <p class="muted" style="margin-top:12px">Dividing by ‖W_down[:, n]‖ turns "activation units" into a push whose length is dose × the stream's typical size. Dose −1 shoves the stream by its whole typical length. Token 0 is skipped because its norm is an outlier.</p>
-    <div class="worked">
-      <span class="chip">L5 N8920</span><span>median ‖resid‖ <b>6.09</b></span><span>÷ ‖W_down‖ <b>0.436</b></span><span>× dose <b>−1</b></span><span>=</span><span class="chip hot">a = −14.0</span>
-    </div>
-  </div>
-</section>
-
-<section class="step">
-  <div class="num">4</div>
-  <div>
-    <h2>What it does</h2>
-    <p>Same prompt, same greedy decoding, one neuron changed.</p>
-    <div class="vs" style="margin-bottom:12px">
-      <div class="box"><div class="lab">Explain how a refrigerator works · baseline</div><q>A refrigerator works by using a <b>vapor-compression refrigeration cycle</b> to move heat from the inside of the fridge to the outside room air…</q></div>
-      <div class="box steered"><div class="lab">L5 N8920 at dose −1</div><q>A refrigerator is a small rodent known for its ability to store and consume food, often causing damage to buildings and homes… A typical house mouse has a long, slender body with a pointed snout.</q></div>
-    </div>
-    <div class="dose">
-      <div class="box"><div class="lab">dose −0.5</div><div class="d">nothing</div><q>…the vapor-compression refrigeration cycle…</q></div>
-      <div class="box on"><div class="lab">dose −1</div><div class="d" style="color:var(--a)">mice</div><q>…a small rodent known for its ability to store and consume food…</q></div>
-      <div class="box"><div class="lab">dose +1</div><div class="d">off topic</div><q>…comes from George Bernard Shaw's play Man and Superman…</q></div>
-    </div>
-    <p class="muted" style="margin-top:12px">It behaves like a switch: no effect at half strength, a full topic swap at −1. The opposite sign is not "anti-mouse"; it's a different, unrelated drift. Push much harder and the text collapses into repeated tokens.</p>
-  </div>
-</section>
-
-<section class="step">
-  <div class="num">5</div>
-  <div>
-    <h2>Finding more: scan a whole layer</h2>
-    <p>Put a different neuron in each row of a batch, generate a short reply to two unrelated prompts, and look for neurons that pull <i>both</i> replies onto the same unexpected topic. One layer is 9,216 runs: 48 minutes on a MacBook, or 3 minutes on 8 rented GPUs for about $0.40.</p>
-    <div class="two">
-      <div class="box">
-        <span class="tag" style="background:var(--a)">Layer 5 · topics</span>
-        <table>
-          <tr><td class="n">N1942</td><td><q>A refrigerator is a severe tropical cyclone</q></td></tr>
-          <tr><td class="n">N8911</td><td><q>A refrigerator, officially the Republic of Moldova</q></td></tr>
-          <tr><td class="n">N7517</td><td><q>A refrigerator (the Ice Age) was a geological period</q></td></tr>
-          <tr><td class="n">N3775</td><td><q>The Lord's work is done…</q></td></tr>
-          <tr><td class="n">N74</td><td>switches to Malay</td></tr>
-        </table>
+    <p class="side"><b>A switch, not a dial</b>Half strength only rewords the fridge answer; −1 swaps the whole topic. Across five prompts at −0.5, only the story picks up a mouse. The opposite sign is not "anti-mouse": at +1 the fridge question turns into a list about serving drinks at a party.</p>
+    <div class="wide">
+      <div class="vs">
+        <div><p class="lab">Explain how a refrigerator works. · unsteered</p><blockquote class="say">A refrigerator works by using a <b>vapor-compression refrigeration cycle</b> to move heat from the inside of the fridge (where you want it cold) to the outside room air…</blockquote></div>
+        <div class="st"><p class="lab">L5 N8920 at dose −1</p><blockquote class="say">A refrigerator, or more accurately, a rodent like a mouse or rat, is a small mammal that has been known to cause damage and spread disease in homes and buildings. These animals are typically found in the wild and can be controlled by using traps…</blockquote></div>
       </div>
-      <div class="box">
-        <span class="tag" style="background:var(--b)">Layer 12 · style &amp; persona</span>
-        <table>
-          <tr><td class="n">N7477</td><td><q>A silent hum of cooling air, the ghost of ice cubes</q></td></tr>
-          <tr><td class="n">N1347</td><td><q>I love gardening! Last weekend, I spent my entire afternoon…</q></td></tr>
-          <tr><td class="n">N7177</td><td><q>Long time no see!</q></td></tr>
-          <tr><td class="n">N3552</td><td>advertises Qwen3.5</td></tr>
-          <tr><td class="n">N2767</td><td>Spanish, then Italian</td></tr>
-        </table>
+      <div class="dose">
+        <div class="on"><p class="d">dose −1</p><p class="w">rodents</p><blockquote class="say">…a rodent like a mouse or rat, is a small mammal that has been known to cause damage and spread disease in homes…</blockquote></div>
+        <div><p class="d">dose −0.5</p><p class="w">reworded</p><blockquote class="say">…using the <b>vapor-compression refrigeration cycle</b> to move heat from inside the fridge (the cold space) to the outside environment…</blockquote></div>
+        <div><p class="d">dose +1</p><p class="w">off topic</p><blockquote class="say">…<b>Soda water</b> added to the drink. <b>Ice cubes</b> removed from the freezer. <b>Drinks</b> served to the guests. <b>Party</b> over!</blockquote></div>
       </div>
+      <p class="note">Full replies for all five prompts: <code>results/neurons/L5_N8920.md</code>, from <code>uv run neuron.py --layer 5 --neuron 8920 --dose -1 -0.5 1</code>.</p>
     </div>
-    <p class="muted" style="margin-top:12px">In these two scans, layer 5 neurons mostly change <b>what</b> the text is about, and layer 12 neurons mostly change <b>how</b> it's said and <b>who</b> is saying it. About 4% of layer-5 neurons and 1% of layer-12 neurons just break the output at dose −1.</p>
   </div>
 </section>
 
-<section class="step">
-  <div class="num">6</div>
+<section class="sheet step" id="s5" aria-labelledby="h5s">
+  <div class="margin"><span class="num" aria-hidden="true">5</span></div>
+  <div class="body">
+    <div class="txt">
+      <h2 id="h5s">Finding more: scan a whole layer</h2>
+      <p>Put a different neuron in each row of a batch, generate a short reply to two unrelated prompts, and look for neurons that pull <i>both</i> replies onto the same unexpected topic. One layer is 9,216 runs: about 48 minutes on a MacBook, or about 3 minutes on 8 rented GPUs for about $0.40.</p>
+    </div>
+    <p class="side"><b>Breakage</b>At dose −1, 359 of the 9,216 layer-5 neurons (about 4%) and 105 of the layer-12 neurons (about 1%) just break the reply.</p>
+    <div class="wide">
+      <div class="two">
+        <div>
+          <p class="th">Layer 5<span>topics</span></p>
+          <table>
+            <tr><td class="n">N1942</td><td><q>A refrigerator is a severe tropical cyclone</q></td></tr>
+            <tr><td class="n">N8911</td><td><q>A refrigerator, officially the Republic of Moldova</q></td></tr>
+            <tr><td class="n">N7517</td><td><q>A refrigerator (the Ice Age) was a geological period</q></td></tr>
+            <tr><td class="n">N3775</td><td><q>The Lord's work is done…</q></td></tr>
+            <tr><td class="n">N74</td><td>switches to Malay</td></tr>
+          </table>
+        </div>
+        <div>
+          <p class="th">Layer 12<span>style and persona</span></p>
+          <table>
+            <tr><td class="n">N7477</td><td><q>A silent hum of cooling air, the ghost of ice cubes</q></td></tr>
+            <tr><td class="n">N1347</td><td><q>I love gardening! Last weekend, I spent my entire afternoon…</q></td></tr>
+            <tr><td class="n">N7177</td><td><q>Long time no see!</q></td></tr>
+            <tr><td class="n">N3552</td><td>advertises Qwen3.5</td></tr>
+            <tr><td class="n">N2767</td><td>Spanish, then Italian</td></tr>
+          </table>
+        </div>
+      </div>
+      <p style="margin-top:16px">In these two scans, layer 5 neurons mostly change <b>what</b> the text is about, and layer 12 neurons mostly change <b>how</b> it's said and <b>who</b> is saying it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sheet step" id="s6" aria-labelledby="h6s">
+  <div class="margin"><span class="num" aria-hidden="true">6</span></div>
+  <div class="body">
+    <div class="txt">
+      <h2 id="h6s">Neurons compose</h2>
+      <p>Because each push just adds to the stream, several can run at once. Four neurons from a published mix combine into a persona none of them has alone:</p>
+    </div>
+    <p class="side"><b>Source</b>The mix is aryabhuptani's <a href="https://github.com/aryabhuptani/nyan-qwen3.5-4b">nyan-qwen3.5-4b</a>, built on treetowntree's <a href="https://neuronary.org/r/xmb34w83">Kawaii cat character</a> recipe. Here every neuron runs on every token; the original limits L22 N8295 to the prompt and the first 16 answer tokens.</p>
+    <div class="wide">
+      <ul class="recipe">
+        <li>Cartoon mascot<span class="lead"></span><span class="co">L9 N9009 +0.7</span></li>
+        <li><span class="plus">and</span> Cat, from the Kawaii cat recipe<span class="lead"></span><span class="co">L26 N6173 +0.3</span></li>
+        <li><span class="plus">and</span> Kawaii<span class="lead"></span><span class="co">L26 N8930 +0.7</span></li>
+        <li><span class="plus">and</span> Female<span class="lead"></span><span class="co">L22 N8295 −0.4</span></li>
+      </ul>
+      <div class="vs">
+        <div><p class="lab">Who are you? · unsteered</p><blockquote class="say">I am <b>Qwen3.5</b>, the latest large language model developed by Tongyi Lab…</blockquote></div>
+        <div class="st"><p class="lab">All four steered</p><blockquote class="say">Kecot! 👋 I am a female cat girl (kemoni) character. I have large, cute ears and a round, fluffy tail.</blockquote></div>
+      </div>
+      <div class="next"><a href="../#kitchen/9:9009:0.7,26:6173:0.3,26:8930:0.7,22:8295:-0.4">Open this mix in the Kitchen</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="sheet step" id="s7" aria-labelledby="h7s">
+  <div class="margin"><span class="num" aria-hidden="true">7</span></div>
+  <div class="body">
+    <div class="txt"><h2 id="h7s">Native neurons vs steering vectors</h2></div>
+    <div class="wide">
+      <table class="cmp">
+        <tr><th></th><th scope="col">Steering vector</th><th scope="col">Native neuron</th></tr>
+        <tr><td>Direction</td><td>You build it: mean activation on "wedding" prompts minus neutral prompts</td><td>Already in the weights: column n of <code>down_proj</code></td></tr>
+        <tr><td>Cost to find</td><td>A few forward passes per concept</td><td>A scan of every neuron, then reading the results</td></tr>
+        <tr><td>Control</td><td>Targets the concept you chose</td><td>You get whatever the neuron does, which can be surprising (fridge to mouse)</td></tr>
+        <tr><td>Why it matters</td><td>A practical knob</td><td>Evidence the model's own units are readable building blocks</td></tr>
+      </table>
+      <div class="next" style="margin-top:22px"><a href="../#5:8920-">Open L5 N8920 in the Atlas</a><a href="../#kitchen">Blend neurons in the Kitchen</a></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="sheet foot">
+  <div class="margin"><span class="mh">Runs</span></div>
   <div>
-    <h2>Neurons compose</h2>
-    <p>Because each push just adds to the stream, several can run at once. Four neurons from a published mix (<a href="https://github.com/aryabhuptani/nyan-qwen3.5-4b" style="color:var(--a)">nyan-qwen3.5-4b</a>) combine into a persona none of them has alone:</p>
-    <div class="mix">
-      <div><b>Mascot</b><span>L9 N9009 +0.7</span></div>
-      <div><b>Cat-word bias</b><span>L26 N6173 +0.3</span></div>
-      <div><b>Kawaii</b><span>L26 N8930 +0.7</span></div>
-      <div><b>Female</b><span>L22 N8295 −0.4</span></div>
-    </div>
-    <div class="vs">
-      <div class="box"><div class="lab">Who are you? · baseline</div><q>I am <b>Qwen3.5</b>, the latest large language model developed by Tongyi Lab…</q></div>
-      <div class="box steered"><div class="lab">all four steered</div><q>Hello! I'm a virtual assistant girl cat. You can call me "Mei" (美喵). I love to help with cute girls, and I am very friendly and easy to talk to.</q></div>
-    </div>
+    <p>Qwen3.5-4B in bf16, greedy decoding with repetition penalty 1.1, on an M5 Pro MacBook and Modal GPUs. Single-neuron outputs from <span class="m">neuron.py</span> and <span class="m">scan.py</span> in qwen-steering, saved in its <span class="m">results/</span> and <span class="m">scans/</span> folders.</p>
+    <p>Per-layer median residual norms from <a href="https://huggingface.co/datasets/nikhilxvytla/neuron-atlas">nikhilxvytla/neuron-atlas</a> (ODC-BY). Recipes from <a href="https://neuronary.org">Neuronary</a> (CC0), credited to their authors.</p>
   </div>
-</section>
-
-<section class="step">
-  <div class="num">7</div>
-  <div>
-    <h2>Native neurons vs. steering vectors</h2>
-    <table>
-      <tr><th></th><th>Steering vector</th><th>Native neuron</th></tr>
-      <tr><td><b>Direction</b></td><td>You build it: mean activation on "wedding" prompts minus neutral prompts</td><td>Already in the weights: column n of <code>down_proj</code></td></tr>
-      <tr><td><b>Cost to find</b></td><td>A few forward passes per concept</td><td>A scan of every neuron, then reading the results</td></tr>
-      <tr><td><b>Control</b></td><td>Targets the concept you chose</td><td>You get whatever the neuron does, which can be surprising (fridge → mouse)</td></tr>
-      <tr><td><b>Why it matters</b></td><td>A practical knob</td><td>Evidence the model's own units are readable building blocks</td></tr>
-    </table>
-  </div>
-</section>
-
-<div class="foot">Runs: Qwen3.5-4B in bf16, greedy decoding with repetition penalty 1.1, on an M5 Pro MacBook and Modal A10 GPUs. Single-neuron outputs from <span class="m">neuron.py</span> and <span class="m">scan.py</span> in qwen-steering, 29 Oct 2026.</div>
-
+</footer>
 </div>
 <script>
-  // 9,216 neurons drawn as a grid of dots, one lit up.
-  const g = document.getElementById("dots"), ns = "http://www.w3.org/2000/svg";
-  const cols = 22, rows = 14, x0 = 188, y0 = 36, step = 10;
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const hot = r === 9 && c === 20;
-    const d = document.createElementNS(ns, "circle");
-    d.setAttribute("cx", x0 + c * step); d.setAttribute("cy", y0 + r * step);
-    d.setAttribute("r", hot ? 5 : 2.6);
-    d.setAttribute("fill", hot ? "var(--a)" : "var(--soft)");
-    d.setAttribute("opacity", hot ? 1 : (0.18 + 0.5 * Math.abs(Math.sin(r * 3.1 + c * 1.7)) ** 3).toFixed(2));
-    g.appendChild(d);
+"use strict";
+const NS = "http://www.w3.org/2000/svg", INK = "#1c1915", RED = "#a3301e", SOFT = "#6b6256", WASH = "#ebe4d5", LEAF = "#fbf8f1";
+const el = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+
+// Fig. 1: layers reading from and adding to the stream.
+{
+  const g = document.getElementById("layers"), Y = 104;
+  const layers = [[110, "layer 0"], [222, "layer 1"], [392, "layer 5", true], [560, "layer 31"]];
+  for (const [x, t, hot] of layers) {
+    g.append(el("rect", { x: x - 40, y: 18, width: 80, height: 32, fill: hot ? "#f1dfd6" : WASH, stroke: hot ? RED : "#d3c9b6", "stroke-width": hot ? 1.5 : 1 }));
+    g.append(el("text", { x, y: 38, "font-size": 12, "text-anchor": "middle", style: hot ? `fill:${RED};font-weight:600` : "" }, t));
+    g.append(el("path", { d: `M${x - 30} ${Y} C ${x - 30} 80, ${x - 18} 76, ${x - 18} 54`, fill: "none", stroke: SOFT, "stroke-width": 1.3, "marker-end": "url(#arS)" }));
+    g.append(el("path", { d: `M${x + 18} 50 L${x + 18} ${Y - 10}`, fill: "none", stroke: hot ? RED : INK, "stroke-width": hot ? 2.2 : 1.3, "marker-end": `url(#${hot ? "arR" : "ar"})` }));
+    g.append(el("circle", { cx: x + 18, cy: Y, r: 7, fill: LEAF, stroke: hot ? RED : INK, "stroke-width": 1.4 }));
+    g.append(el("path", { d: `M${x + 14} ${Y}h8M${x + 18} ${Y - 4}v8`, stroke: hot ? RED : INK, "stroke-width": 1.4 }));
   }
-  const t = document.createElementNS(ns, "text");
-  t.setAttribute("x", 375); t.setAttribute("y", 150); t.setAttribute("font-size", 11);
-  t.setAttribute("style", "fill:var(--a)"); t.textContent = "n";
-  g.appendChild(t);
+  for (const x of [307, 476]) g.append(el("text", { x, y: 38, "font-size": 14, "text-anchor": "middle", style: `fill:${SOFT}` }, "· · ·"));
+  g.append(el("text", { x: 76, y: 78, "font-size": 10, "text-anchor": "end", style: `fill:${SOFT}` }, "read"));
+  g.append(el("text", { x: 133, y: 78, "font-size": 10 }, "add"));
+}
+
+// Fig. 2: the MLP, 9,216 neurons drawn as a grid with one circled.
+{
+  const g = document.getElementById("mlp");
+  const col = (x, label, sub) => {
+    for (let i = 0; i < 12; i++) g.append(el("rect", { x, y: 46 + i * 10, width: 18, height: 9, fill: i % 3 ? WASH : "#ddd3c1" }));
+    g.append(el("rect", { x: x - 0.5, y: 45.5, width: 19, height: 120, fill: "none", stroke: INK }));
+    g.append(el("text", { x: x + 9, y: 184, "font-size": 11, "text-anchor": "middle" }, label));
+    g.append(el("text", { x: x + 9, y: 198, "font-size": 10, "text-anchor": "middle", style: `fill:${SOFT}` }, sub));
+  };
+  col(30, "stream", "2,560");
+  col(600, "stream", "+ result");
+  const hatch = (pts, label, lx) => {
+    g.append(el("path", { d: `M${pts}Z`, fill: "none", stroke: INK, "stroke-width": 1 }));
+    g.append(el("text", { x: lx, y: 206, "font-size": 11, "text-anchor": "middle", style: `fill:${SOFT}` }, label));
+  };
+  hatch("60 70 L172 22 L172 190 L60 142", "gate × up", 116);
+  hatch("444 22 L568 70 L568 142 L444 190", "down_proj", 506);
+  for (let i = 0; i < 9; i++) {
+    g.append(el("line", { x1: 66 + i * 12, y1: 70 - i * 5.3 + 3, x2: 66 + i * 12, y2: 142 + i * 5.3 - 3, stroke: "#d3c9b6" }));
+    g.append(el("line", { x1: 450 + i * 13, y1: 24 + i * 5.3 + 3, x2: 450 + i * 13, y2: 188 - i * 5.3 - 3, stroke: "#d3c9b6" }));
+  }
+  const cols = 24, rows = 15, x0 = 192, y0 = 36, step = 10.4;
+  g.append(el("text", { x: 312, y: 18, "font-size": 12, "text-anchor": "middle" }, "9,216 neurons"));
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const hot = r === 9 && c === 21;
+    g.append(el("circle", { cx: x0 + c * step, cy: y0 + r * step, r: hot ? 3.6 : 2.2, fill: hot ? RED : INK, opacity: hot ? 1 : (0.12 + 0.45 * Math.abs(Math.sin(r * 3.1 + c * 1.7)) ** 3).toFixed(2) }));
+  }
+  const hx = x0 + 21 * step, hy = y0 + 9 * step;
+  g.append(el("ellipse", { cx: hx, cy: hy, rx: 9, ry: 8, fill: "none", stroke: RED, "stroke-width": 1.4, transform: `rotate(-12 ${hx} ${hy})` }));
+  g.append(el("text", { x: hx - 14, y: hy + 4, "font-size": 13, "text-anchor": "end", style: `fill:${RED};font-family:Newsreader,serif;font-style:italic` }, "n"));
+  g.append(el("path", { d: `M${hx + 9} ${hy + 4} C 470 160, 540 176, 596 150`, fill: "none", stroke: RED, "stroke-width": 1.8, "stroke-dasharray": "0", "marker-end": "url(#arR2)" }));
+  const defs = el("defs", {}); const mk = el("marker", { id: "arR2", viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto" });
+  mk.append(el("path", { d: "M0,1L9,5L0,9z", fill: RED })); defs.append(mk); g.prepend(defs);
+  g.append(el("text", { x: 676, y: 20, "font-size": 10.5, "text-anchor": "end", style: `fill:${RED}` }, "writes W_down[:, n]"));
+  g.append(el("text", { x: 676, y: 33, "font-size": 10.5, "text-anchor": "end", style: `fill:${RED}` }, "× activation"));
+}
 </script>
 </body>
 </html>

@@ -3,157 +3,187 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Neuron Atlas: Qwen3.5-4B</title>
+<title>Neuron Atlas · qwen-steering</title>
+<meta name="description" content="All 294,912 MLP neurons in Qwen3.5-4B, each pushed alone and asked two questions, plus a kitchen for blending neurons with published effects.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;1,400&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand">
-    <h1>Neuron Atlas</h1>
-    <p class="sub">All <span id="count">294,912</span> MLP neurons in Qwen3.5-4B, each pushed alone and asked two questions. <a href="how-it-works/">How steering works</a></p>
-  </div>
-  <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="atlas" aria-selected="true">Atlas</button>
-    <button role="tab" data-tab="kitchen" aria-selected="false">Kitchen <span id="pot-count" hidden></span></button>
+<div class="book">
+<header class="head">
+  <a class="mark" href="./">qwen-steering<small>Qwen3.5-4B neuron notebook</small></a>
+  <nav class="tabs" aria-label="Pages">
+    <a href="#5:8920-" data-tab="atlas" aria-current="page"><span class="f">i.</span>Atlas</a>
+    <a href="#kitchen" data-tab="kitchen"><span class="f">ii.</span>Kitchen<span id="pot-count" class="pot" hidden></span></a>
+    <a href="how-it-works/"><span class="f">iii.</span>How it works</a>
   </nav>
+  <p class="folio">32 layers × 9,216 neurons</p>
 </header>
 
 <main id="atlas">
-  <div class="toolbar controls" data-for="atlas">
-    <div class="search">
-      <input id="q" type="search" placeholder="Search labels and replies" autocomplete="off" spellcheck="false" aria-label="Search labels and replies, for example mouse, French, pirate">
-      <kbd>/</kbd>
-      <div id="results" hidden></div>
-    </div>
-    <div class="sel">Dose
-      <div class="seg" id="dose" role="radiogroup" aria-label="Dose shown in the heatmap">
-        <button data-dose="0" aria-pressed="true">−0.8</button>
-        <button data-dose="1" aria-pressed="false">+0.8</button>
-      </div>
-    </div>
-    <label class="sel">Colour by
-      <select id="metric">
-        <option value="topic">Topic (rare words)</option>
-        <option value="change">Change from baseline</option>
-        <option value="broken">Breakage</option>
-        <option value="labels">Has a label</option>
-        <option value="search">Search hits</option>
-      </select>
-    </label>
+<section class="sheet intro">
+  <div class="margin">
+    <p class="tally"><b id="count">294,912</b> neurons<br>pushed at <b>−0.8</b> and <b>+0.8</b><br>on <b>2</b> prompts<br><b id="n-labels">9,925</b> with atlas labels</p>
   </div>
-
-  <div class="atlas-grid">
-    <nav id="strip" aria-label="Layers"></nav>
-
-    <section id="field">
-      <div class="field-head">
-        <h2 id="layer-title">Layer 0</h2>
-        <p id="layer-note" class="note"></p>
+  <div>
+    <h1>Atlas</h1>
+    <p class="lede">Every MLP neuron in Qwen3.5-4B, pushed alone and asked two questions. Pick a layer, then click a pixel to read what that neuron does to the replies. <a href="how-it-works/">How steering works</a></p>
+    <div class="tools">
+      <div class="search">
+        <label for="q" class="lbl">Search labels and replies</label>
+        <input id="q" type="search" placeholder="mouse, French, pirate…" autocomplete="off" spellcheck="false" aria-controls="results" aria-expanded="false">
+        <kbd aria-hidden="true">/</kbd>
+        <div id="results" class="results" hidden></div>
       </div>
-      <div class="canvas-wrap" id="wrap">
-        <canvas id="map" width="96" height="96"></canvas>
-        <div id="cursor"></div>
-        <div id="tip" hidden></div>
+      <div role="group" aria-labelledby="dose-l">
+        <span id="dose-l" class="lbl">Dose</span>
+        <div class="seg" id="dose"><button data-dose="0" aria-pressed="true">−0.8</button><button data-dose="1" aria-pressed="false">+0.8</button></div>
       </div>
-      <div class="legend"><span id="legend-lo"></span><i id="ramp"></i><span id="legend-hi"></span></div>
-      <p class="legend-key"><i class="sw broken"></i>Broken reply <i class="sw attn"></i>Full attention layer</p>
-      <h3>Brightest in this layer</h3>
-      <ol id="top"></ol>
-    </section>
+      <div class="sel">
+        <label for="metric" class="lbl">Colour by</label>
+        <select id="metric">
+          <option value="topic">Topic (rare words)</option>
+          <option value="change">Change from baseline</option>
+          <option value="broken">Breakage</option>
+          <option value="labels">Has a label</option>
+          <option value="search">Search hits</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</section>
 
-    <aside id="inspector">
-      <div class="id-row">
-        <div id="nid">—</div>
-        <div class="nav">
-          <button id="prev" title="Previous neuron (←)" aria-label="Previous neuron">←</button>
-          <button id="next" title="Next neuron (→)" aria-label="Next neuron">→</button>
-          <button id="rand" title="A random bright neuron (R)">Random</button>
+<section class="sheet work">
+  <aside class="margin">
+    <h2 class="mh">Layers</h2>
+    <nav id="strip" class="strip" aria-label="Layers"></nav>
+    <p class="mnote"><span class="k"></span>Full attention. The other 24 layers use linear attention (Gated DeltaNet).</p>
+    <div class="mnote" id="layer-notes"></div>
+    <p class="mnote keys"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> move<br><kbd>[</kbd><kbd>]</kbd> change layer<br><kbd>D</kbd> flip dose · <kbd>R</kbd> random<br><kbd>/</kbd> search</p>
+  </aside>
+
+  <div class="cols">
+    <figure class="plate" aria-labelledby="layer-title">
+      <figcaption class="cap"><span class="fig" id="plate-no">Plate 6 of 32</span><h2 id="layer-title">Layer 5</h2></figcaption>
+      <p class="layer-note" id="layer-note"></p>
+      <div class="frame">
+        <div class="ax-top" id="ax-top" aria-hidden="true"></div>
+        <div class="ax-left" id="ax-left" aria-hidden="true"></div>
+        <div class="map" id="wrap">
+          <canvas id="map" width="96" height="96" tabindex="0" role="img" aria-label="Layer map, one pixel per neuron. Click a pixel, or focus here and use the arrow keys to move between neurons."></canvas>
+          <svg id="notes" aria-hidden="true"></svg>
+          <div id="tip" class="tip" hidden></div>
+        </div>
+      </div>
+      <div class="legend"><span class="lo" id="legend-lo"></span><span class="ramp" id="ramp"></span><span id="legend-hi"></span></div>
+      <div class="legend-2" id="legend-2"></div>
+      <p class="readout" id="readout"></p>
+      <p class="pnote" id="pnote" hidden></p>
+      <div class="onlayer"><h3 id="top-h">Brightest on this layer</h3><ol id="top"></ol></div>
+    </figure>
+
+    <article class="entry" id="entry" aria-labelledby="nid">
+      <div class="e-head">
+        <div><p class="kick">Entry</p><h2 id="nid">L5 N8920</h2><p class="nsub" id="nsub"></p></div>
+        <div class="e-nav">
+          <button class="btn" id="prev" title="Previous neuron (←)" aria-label="Previous neuron">←</button>
+          <button class="btn" id="next" title="Next neuron (→)" aria-label="Next neuron">→</button>
+          <button class="btn" id="rand" title="A random bright neuron (R)">Random</button>
         </div>
       </div>
       <div id="label"></div>
       <div id="words"></div>
       <div id="replies"></div>
-      <div id="stats"></div>
+      <div id="stats" class="scores"></div>
       <div class="cmd">
-        <code id="cmd"></code>
-        <button id="copy">Copy</button>
+        <div class="cmd-h"><span class="lbl" style="margin:0">Reproduce it<span class="hint">from the qwen-steering repo</span></span><button class="btn" id="copy">Copy</button></div>
+        <pre id="cmd"></pre>
       </div>
-      <button id="to-kitchen" class="btn to-kitchen">Add to the kitchen at this dose</button>
-    </aside>
+      <button id="to-kitchen" class="btn to-kitchen">Add to the Kitchen at this dose</button>
+    </article>
   </div>
+</section>
 </main>
 
-<section id="kitchen" hidden>
-  <div class="k-intro">
-    <h2>Kitchen</h2>
-    <p class="note">Blend neurons that have a published effect, set how hard each one pushes, and copy one command that steers with all of them at once.</p>
-  </div>
-
-  <div class="k-grid">
-    <div class="pantry">
-      <div class="seg wide" id="k-view" role="radiogroup" aria-label="Show">
-        <button data-view="neurons" aria-pressed="true">Single neurons <span id="k-n-count"></span></button>
-        <button data-view="blends" aria-pressed="false">House blends <span id="k-b-count"></span></button>
-      </div>
-      <input id="k-q" type="search" placeholder="Find an ingredient: apology, cat, French, L15N4041" autocomplete="off" spellcheck="false" aria-label="Find an ingredient">
-      <div class="filters">
-        <div class="chips" id="k-fams"></div>
-        <label class="sel">Evidence
-          <select id="k-tier">
-            <option value="all">Any</option>
-            <option value="reproduced">Validated or reproduced</option>
-            <option value="validated">Validated only</option>
-          </select>
-        </label>
-      </div>
-      <p class="count note" id="k-count"></p>
-      <ul id="k-list" class="list"></ul>
-    </div>
-
-    <div class="mixer">
-      <div class="k-head">
-        <h3>Your blend</h3>
-        <div class="actions">
-          <button id="k-surprise">Surprise me</button>
-          <button id="k-clear">Clear</button>
-        </div>
-      </div>
-      <div class="stack-wrap">
-        <div id="stack" aria-hidden="true"></div>
-        <p id="k-empty" class="empty">Nothing in the blend yet. Add a neuron from the list, start from a house blend, or try Surprise me.</p>
-      </div>
-      <ul id="k-mix"></ul>
-      <div id="heat"></div>
-    </div>
-
-    <aside class="recipe">
-      <h3>Recipe</h3>
-      <div id="k-name" class="recipe-title"></div>
-      <label class="field">Prompt
-        <input id="k-prompt" value="Who are you?" spellcheck="false">
-      </label>
-      <p class="presets"><span>Try</span><span id="k-prompts"></span></p>
-      <div class="field-label">Command <span>run it from the qwen-steering repo</span></div>
-      <div class="cmd"><code id="k-cmd"></code><button data-copy="k-cmd">Copy</button></div>
-      <div id="k-recipe-block">
-        <div class="field-label">Neuronary format</div>
-        <div class="cmd"><code id="k-recipe"></code><button data-copy="k-recipe">Copy</button></div>
-      </div>
-      <h3>What each ingredient does</h3>
-      <div id="k-notes"></div>
-    </aside>
+<main id="kitchen" hidden>
+<section class="sheet intro">
+  <div class="margin"><p class="tally"><b id="k-tally-n">137</b> single neurons<br><b id="k-tally-b">54</b> house blends<br>from <a href="https://neuronary.org" target="_blank" rel="noopener"><b>Neuronary</b></a></p></div>
+  <div>
+    <h1>Kitchen</h1>
+    <p class="lede">Blend neurons that have a published effect, set how hard each one pushes, and copy one command that steers with all of them at once.</p>
   </div>
 </section>
 
-<footer>
-  <p>Data from <a href="https://huggingface.co/datasets/nikhilxvytla/neuron-atlas" target="_blank" rel="noopener">nikhilxvytla/neuron-atlas</a> (ODC-BY).
-  Each neuron gets <code>dose × median(||resid||) / ||W_down[:, n]||</code> added at its down_proj input on every token, greedy, 32 tokens.
-  Kitchen recipes come from <a href="https://neuronary.org" target="_blank" rel="noopener">Neuronary</a> and are credited to their authors.
-  Labels are written by an LLM and describe what a neuron fires on, which is often not what pushing it does.</p>
-  <p class="keys">Keys: arrows move, <kbd>[</kbd> <kbd>]</kbd> change layer, <kbd>D</kbd> flips the dose, <kbd>R</kbd> random, <kbd>/</kbd> search.</p>
+<section class="sheet work kwork">
+  <aside class="margin">
+    <div class="mgroup"><h2 class="mh" id="kind-h">Kind</h2><div class="kinds" id="k-fams" role="group" aria-labelledby="kind-h"></div></div>
+    <fieldset class="mgroup radios"><legend class="mh">Evidence</legend>
+      <label><input type="radio" name="k-tier" value="all" checked> Any</label>
+      <label><input type="radio" name="k-tier" value="reproduced"> Reproduced or better</label>
+      <label><input type="radio" name="k-tier" value="validated"> Validated only</label>
+    </fieldset>
+    <dl class="tiers" id="k-tiers"></dl>
+    <p class="kmnote">A negative dose is not the opposite behaviour. Many neurons act as gates, so Flip often does something unrelated.</p>
+  </aside>
+
+  <div class="kcols">
+    <section aria-labelledby="pantry-h">
+      <div class="colh"><h2 id="pantry-h">Pantry</h2></div>
+      <div class="views" id="k-view" role="group" aria-label="Show">
+        <button data-view="neurons" aria-pressed="true">Single neurons<span class="c" id="k-n-count"></span></button>
+        <button data-view="blends" aria-pressed="false">House blends<span class="c" id="k-b-count"></span></button>
+      </div>
+      <label for="k-q" class="sr">Find an ingredient</label>
+      <input id="k-q" class="find" type="search" placeholder="Find: apology, cat, French, L15N4041" autocomplete="off" spellcheck="false">
+      <p class="count" id="k-count" aria-live="polite"></p>
+      <ul class="pantry" id="k-list"></ul>
+    </section>
+
+    <section aria-labelledby="blend-h">
+      <div class="colh"><h2 id="blend-h">Your blend</h2><div class="acts"><button class="btn" id="k-surprise">Surprise me</button><button class="btn" id="k-clear">Clear</button></div></div>
+      <svg class="plot" id="stack" viewBox="0 0 420 196" role="img" aria-label="Where each ingredient pushes: layer across, dose up and down"></svg>
+      <div class="plot-key" aria-hidden="true"><span><i style="width:12px;height:12px;border:1.4px solid var(--ink);border-radius:50%"></i>your dose</span><span><i style="width:12px;height:2px;background:var(--red)"></i>published dose</span><span><i style="width:10px;height:10px;background:var(--wash)"></i>full attention layer</span></div>
+      <ul class="mix" id="k-mix"></ul>
+      <p class="empty-mix" id="k-empty" hidden>Nothing in the blend yet. Add a neuron from the pantry, load a house blend, or press Surprise me.</p>
+      <div class="scale" id="k-scale" aria-hidden="true"><span>−1.5</span><span>0</span><span>+1.5</span></div>
+      <div class="heat" id="heat"></div>
+    </section>
+
+    <aside class="card" aria-labelledby="k-name">
+      <p class="kick">Recipe card</p>
+      <h2 id="k-name">Nothing yet</h2>
+      <div class="field">
+        <label class="lbl" for="k-prompt">Prompt</label>
+        <input class="prompt" id="k-prompt" value="Who are you?" autocomplete="off" spellcheck="false">
+        <p class="try" id="k-prompts"></p>
+      </div>
+      <div class="field">
+        <p class="lbl" id="cmd-l">Command<span class="hint">run it from the qwen-steering repo</span></p>
+        <div class="slip"><pre id="k-cmd" aria-labelledby="cmd-l"></pre><button class="btn" data-copy="k-cmd">Copy</button></div>
+      </div>
+      <div class="field" id="k-recipe-block">
+        <p class="lbl" id="rec-l">Neuronary format</p>
+        <div class="slip"><pre id="k-recipe" aria-labelledby="rec-l"></pre><button class="btn" data-copy="k-recipe">Copy</button></div>
+      </div>
+      <div class="notes">
+        <p class="lbl">What each ingredient does</p>
+        <div id="k-notes"></div>
+      </div>
+    </aside>
+  </div>
+</section>
+</main>
+
+<footer class="sheet foot">
+  <div class="margin"><span class="mh">Sources</span></div>
+  <div>
+    <p>Neuron sweep, labels and median residual norms from <a href="https://huggingface.co/datasets/nikhilxvytla/neuron-atlas" target="_blank" rel="noopener">nikhilxvytla/neuron-atlas</a> (ODC-BY). Each neuron gets <code>dose × median(‖resid‖) / ‖W_down[:, n]‖</code> added at its down_proj input on every token, greedy, 32 tokens.</p>
+    <p>Kitchen recipes come from <a href="https://neuronary.org" target="_blank" rel="noopener">Neuronary</a> (CC0) and are credited to their authors. <code>--mix</code> applies every dose evenly on every token. Atlas labels are written by an LLM and describe what a neuron fires on, which is often not what pushing it does.</p>
+  </div>
 </footer>
+</div>
 
 <script type="module" src="app.js"></script>
 </body>
