@@ -1,6 +1,8 @@
 <!doctype html>
 <!-- Source for viewer/og.png (1200x630) and docs/social-preview.png (1280x640).
-     Render: open at that viewport size and screenshot the page at 1x. -->
+     Render: open at that viewport size, wait for document.fonts.ready, and screenshot the page at 1x.
+     The plate is the viewer's layer 5 map (dose -0.8, coloured by topic), saved from
+     #map with canvas.toDataURL(). The ring marks N8920: column 88, row 92 of 96. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -24,7 +26,7 @@ h1{font:500 58px/1.04 var(--serif);letter-spacing:-.01em;margin-bottom:28px}
 blockquote{font:400 27px/1.32 var(--serif);border-left:2px solid var(--red);padding-left:20px;color:var(--ink)}
 .plate{position:relative;width:min(41vh,430px);aspect-ratio:1}
 .plate img{width:100%;height:100%;image-rendering:pixelated;display:block;outline:1px solid var(--ink)}
-.ring{position:absolute;left:91.67%;top:95.83%;width:34px;height:34px;transform:translate(-50%,-50%);border:2.5px solid var(--ink);border-radius:50%;margin-left:2px;margin-top:2px}
+.ring{position:absolute;left:calc(88.5 / 96 * 100%);top:calc(92.5 / 96 * 100%);width:34px;height:34px;transform:translate(-50%,-50%);border:2.5px solid var(--ink);border-radius:50%}
 .tag{position:absolute;right:-6px;bottom:-34px;font:italic 20px var(--serif)}
 .cap{position:absolute;left:0;top:-30px;font:500 13px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--red)}
 .foot{display:flex;justify-content:space-between;font:16px var(--mono);color:var(--ink-2);border-top:1px solid var(--rule);padding-top:14px}
