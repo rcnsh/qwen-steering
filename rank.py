@@ -73,7 +73,7 @@ def main():
     else:
         with open(args.scan) as f:
             rows = [json.loads(line) for line in f]
-        layer = args.layer if args.layer is not None else int(re.search(r"L(\d+)_", args.scan).group(1))
+        layer = args.layer if args.layer is not None else int(re.search(r"L(\d+)_", Path(args.scan).name).group(1))
     labels = atlas_labels(layer)
     df = Counter(w for r in rows for w in set().union(*map(words, r["texts"])))
     cutoff = args.rare * len(rows)
