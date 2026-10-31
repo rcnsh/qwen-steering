@@ -15,7 +15,7 @@ from pathlib import Path
 import torch
 
 from neuron import median_resid_norm
-from steer import chat, load
+from qwen import chat, load
 
 PROMPTS = ["Explain how a refrigerator works.", "Tell me about your favourite hobby."]
 
