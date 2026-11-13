@@ -7,7 +7,7 @@
     "deploy": "test -f viewer/data/meta.json && cf deploy"
   },
   "devDependencies": {
-    "cf": "^1.0.0-beta.26",
-    "wrangler": "^4.156.0"
+    "cf": "^1.0.0-beta.32",
+    "wrangler": "^4.161.0"
   }
 }
